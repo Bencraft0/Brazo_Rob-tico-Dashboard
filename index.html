@@ -214,18 +214,14 @@ document.getElementById("classifyBtn").onclick = async () => {
     return;
   }
 
-  // Capturar frame
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   const ctx = canvas.getContext("2d");
   ctx.drawImage(video, 0, 0);
-
-  // Convertir a base64
   const base64 = canvas.toDataURL("image/jpeg");
 
   try {
-    // Llamar al Space
     const res = await fetch("https://clasificador-proxy.onrender.com/predict", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -233,27 +229,24 @@ document.getElementById("classifyBtn").onclick = async () => {
     });
 
     const result = await res.json();
-    const raw = result.data?.[0]; // raw = {label: "plástico"} según tu app.py
     let label = "desconocido";
 
-    if(raw?.label) {
-      label = raw.label;
-    } else if(typeof raw === "string") {
-      label = raw;
+    if (Array.isArray(result.data) && result.data.length > 0 && result.data[0].label) {
+      label = result.data[0].label;
     }
 
     log("📷 Clasificado: " + label, "info");
     document.getElementById("lastLabel").textContent = "Etiqueta: " + label;
 
-    // Modo auto
-    if(document.getElementById("autoMode").checked) {
+    if (document.getElementById("autoMode").checked) {
       enviarComando("POSE," + label);
     }
 
-  } catch(e) {
+  } catch (e) {
     log("Error fetch: " + e, "err");
   }
 };
+
 </script>
 
 
