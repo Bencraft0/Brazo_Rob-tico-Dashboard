@@ -214,28 +214,37 @@ document.getElementById("classifyBtn").onclick = async () => {
     return;
   }
 
+  // Capturar frame del video
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   const ctx = canvas.getContext("2d");
   ctx.drawImage(video, 0, 0);
+
+  // Convertir a base64
   const base64 = canvas.toDataURL("image/jpeg");
+
+  const payload = { data: [base64] };
+  log("📤 Enviando al proxy: " + JSON.stringify(payload).slice(0, 100) + "...", "info");
 
   try {
     const res = await fetch("https://clasificador-proxy.onrender.com/predict", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data: [base64] })
+      body: JSON.stringify(payload)
     });
 
-    const result = await res.json();
-    let label = "desconocido";
+    log("📡 Estado HTTP: " + res.status, "info");
 
-    if (Array.isArray(result.data) && result.data.length > 0 && result.data[0].label) {
-      label = result.data[0].label;
+    if (!res.ok) {
+      log("❌ Respuesta no OK: " + res.statusText, "err");
+      return;
     }
 
-    log("📷 Clasificado: " + label, "info");
+    const result = await res.json();
+    log("✅ Respuesta recibida: " + JSON.stringify(result), "info");
+
+    let label = result.data?.[0]?.label || "desconocido";
     document.getElementById("lastLabel").textContent = "Etiqueta: " + label;
 
     if (document.getElementById("autoMode").checked) {
@@ -243,7 +252,7 @@ document.getElementById("classifyBtn").onclick = async () => {
     }
 
   } catch (e) {
-    log("Error fetch: " + e, "err");
+    log("❌ Error fetch: " + e, "err");
   }
 };
 
