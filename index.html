@@ -226,7 +226,7 @@ document.getElementById("classifyBtn").onclick = async () => {
 
   try {
     // Llamar al Space
-    const res = await fetch("https://huggingface.co/spaces/Bencraft/clasificador-residuo-api/run/predict", {
+    const res = await fetch("https://clasificador-proxy.onrender.com/predict", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ data: [base64] })
