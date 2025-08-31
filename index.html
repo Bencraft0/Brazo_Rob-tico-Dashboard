@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brazo Robótico – Dashboard</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Segoe UI', sans-serif; background:#e6ebf0; color:#222; height:100vh; overflow-x:hidden; }
+  h1 { text-align:center; font-size:28px; padding:20px 0; }
+
+  .dashboard {
+    display:flex;
+    gap:20px;
+    padding:0 20px 20px 20px;
+    width:100%;
+    height:calc(100vh - 80px);
+  }
+
+  .video-panel {
+    display:flex;
+    flex-direction:column;
+    gap:15px;
+    width:720px;
+    min-width:720px;
+    flex-shrink:0;
+  }
+
+  #video { width:720px; height:auto; border-radius:12px; border:1px solid #ddd; }
+
+  .poses {
+    display:grid;
+    grid-template-columns: repeat(3,1fr);
+    gap:10px;
+    margin-top:10px;
+  }
+
+  .sliders-panel {
+    display:flex;
+    flex-direction:column;
+    gap:15px;
+    background:#fff;
+    border-radius:12px;
+    padding:15px;
+    box-shadow:0 4px 8px rgba(0,0,0,0.08);
+    flex:1;
+    overflow-y:auto;
+    position: relative;
+    z-index:1;
+  }
+
+  .slider-container {
+    text-align:center;
+    background:#fff;
+    padding:15px;
+    border-radius:12px;
+    box-shadow:0 2px 5px rgba(0,0,0,0.1);
+    position: relative;
+    z-index:2;
+  }
+  .slider-container h2 { margin-bottom:10px; font-size:16px; color:#333; }
+  input[type="range"] { width:100%; height:12px; -webkit-appearance:none; background:#ddd; border-radius:6px; outline:none; margin:10px 0; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; width:24px; height:24px; border-radius:50%; background:#00AEEF; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.3); transition:0.2s; }
+  input[type="range"]::-webkit-slider-thumb:hover { background:#007bbf; }
+  .slider-val { display:block; margin-top:5px; font-weight:bold; }
+
+  .btn { padding:12px; border-radius:10px; border:none; background:#00AEEF; color:#fff; cursor:pointer; font-weight:600; transition:0.2s; width:100%; margin-top:5px; }
+  .btn:hover { background:#007bbf; }
+  .btn:active { transform:translateY(1px); }
+
+  label { font-size:14px; display:flex; align-items:center; gap:6px; }
+  .badge { padding:3px 8px; border-radius:999px; background:#00aeef22; color:#00AEEF; font-size:12px; margin-left:6px; }
+
+  #log-panel {
+    position:fixed; top:20px; left:20px; width:350px; height:200px;
+    background:rgba(17,17,17,0.8); font-family:"Fira Code", monospace; font-size:14px;
+    padding:10px; border-radius:12px; box-shadow:0 4px 10px rgba(0,0,0,0.3);
+    overflow:hidden; display:flex; flex-direction:column-reverse; gap:5px; z-index:9999;
+    pointer-events:none;
+  }
+
+  #log-panel button { pointer-events:auto; }
+  #close-log { position:absolute; top:5px; right:5px; background:#222; color:#fff; border:none; border-radius:50%; width:24px; height:24px; cursor:pointer; font-weight:bold; }
+
+  .log-bubble {
+    padding:6px 10px; border-radius:12px; max-width:100%; word-wrap:break-word;
+    font-size:13px; line-height:1.3; opacity:1; transition: opacity 1s linear;
+    pointer-events:auto;
+  }
+  .log-info { background:#0f0a0f22; color:#0f0; align-self:flex-start; }
+  .log-cmd  { background:#00aef022; color:#00AEEF; align-self:flex-end; }
+  .log-err  { background:#f00a0022; color:#f00; align-self:flex-start; }
+
+  @media(max-width:1150px){
+    .dashboard { flex-direction:column; align-items:center; height:auto; }
+    .video-panel { width:100%; min-width:unset; }
+    .sliders-panel { width:100%; max-width:100%; }
+    .poses { grid-template-columns: repeat(2,1fr); }
+  }
+
+  @media(max-width:720px){ .poses { grid-template-columns: repeat(1,1fr); } }
+</style>
+</head>
+<body>
+
+<h1>Brazo Robótico – Dashboard</h1>
+
+<div class="dashboard">
+  <div class="video-panel">
+    <video id="video" autoplay playsinline></video>
+    <label><input type="checkbox" id="autoMode"> Auto: mover según etiqueta</label>
+    <span id="lastLabel" class="badge">Etiqueta: -</span>
+
+    <div class="poses">
+      <button class="btn" data-pose="HOME">HOME</button>
+      <button class="btn" data-pose="BIN_PLASTICO">PLÁSTICO</button>
+      <button class="btn" data-pose="BIN_PAPEL">PAPEL</button>
+      <button class="btn" data-pose="BIN_METAL">ALUMINIO</button>
+      <button class="btn" data-pose="BIN_OTROS">OTROS</button>
+    </div>
+
+    <button class="btn" id="classifyBtn">Clasificar (foto actual)</button>
+    <button class="btn" onclick="conectarESP32()">Conectar ESP32 (Serial)</button>
+  </div>
+
+  <div class="sliders-panel">
+    <div class="slider-container">
+      <h2>Base</h2><input type="range" min="0" max="180" value="90" data-id="0" class="servo"><span class="slider-val" id="val-0">90°</span>
+    </div>
+    <div class="slider-container">
+      <h2>Hombro</h2><input type="range" min="0" max="180" value="90" data-id="1" class="servo"><span class="slider-val" id="val-1">90°</span>
+    </div>
+    <div class="slider-container">
+      <h2>Codo</h2><input type="range" min="0" max="180" value="90" data-id="2" class="servo"><span class="slider-val" id="val-2">90°</span>
+    </div>
+    <div class="slider-container">
+      <h2>Giro Muñeca</h2><input type="range" min="0" max="180" value="90" data-id="3" class="servo"><span class="slider-val" id="val-3">90°</span>
+    </div>
+    <div class="slider-container">
+      <h2>Inclin. Muñeca</h2><input type="range" min="0" max="180" value="90" data-id="4" class="servo"><span class="slider-val" id="val-4">90°</span>
+    </div>
+    <div class="slider-container">
+      <h2>Pinza</h2><input type="range" min="0" max="90" value="30" data-id="5" class="servo"><span class="slider-val" id="val-5">30°</span>
+    </div>
+  </div>
+</div>
+
+<div id="log-panel"><button id="close-log">×</button></div>
+
+<script>
+// Logs
+const logPanel = document.getElementById("log-panel");
+document.getElementById("close-log").onclick = () => logPanel.style.display="none";
+function log(msg,type="info",fadeTime=4000){ 
+  if(logPanel.style.display==="none") logPanel.style.display="flex";
+  const div=document.createElement("div");
+  div.className="log-bubble"; div.classList.add(type==="info"?"log-info":type==="cmd"?"log-cmd":"log-err");
+  div.textContent=msg; logPanel.prepend(div);
+  setTimeout(()=>{ div.style.opacity=0; setTimeout(()=>div.remove(),1000); },fadeTime);
+  const children=Array.from(logPanel.children).filter(c=>c.id!=="close-log"); while(children.length>6){ children.pop().remove(); }
+}
+
+// Cámara
+const video = document.getElementById("video");
+async function startCam(){ 
+  try{ 
+    const stream = await navigator.mediaDevices.getUserMedia({video:true}); 
+    video.srcObject = stream; 
+    log("Cámara iniciada","info"); 
+  } catch(e){ 
+    log("Error cámara: "+e,"err"); 
+  } 
+}
+startCam();
+
+// Serial
+let port, writer;
+async function conectarESP32(){ 
+  try{ 
+    port = await navigator.serial.requestPort(); 
+    await port.open({baudRate:9600}); 
+    const encoder = new TextEncoderStream(); 
+    encoder.readable.pipeTo(port.writable); 
+    writer = encoder.writable.getWriter(); 
+    log("✅ Conectado al ESP32","cmd"); 
+  } catch(e){ 
+    log("Error: "+e,"err"); 
+  } 
+}
+async function enviarComando(cmd){ 
+  if(!writer){ log("ESP32 no conectado","err"); return; } 
+  await writer.write(cmd+"\n"); 
+  log("→ Enviado: "+cmd,"cmd"); 
+}
+
+// Sliders
+document.querySelectorAll('.servo').forEach(slider=>{
+  slider.addEventListener('input',()=>{
+    const id=slider.dataset.id; 
+    document.getElementById('val-'+id).innerText=slider.value+'°'; 
+    enviarComando(`S,${id},${slider.value}`);
+  });
+});
+
+// Poses
+document.querySelectorAll('[data-pose]').forEach(btn=>{
+  btn.onclick = ()=>enviarComando(`POSE,${btn.dataset.pose}`);
+});
+
+// Clasificación a Hugging Face Space
+document.getElementById("classifyBtn").onclick = async () => {
+  if (!video.videoWidth || !video.videoHeight) {
+    log("❌ Cámara no lista", "err");
+    return;
+  }
+
+  // Capturar frame
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(video, 0, 0);
+
+  // Convertir a base64
+  const base64 = canvas.toDataURL("image/jpeg");
+
+  try {
+    // Llamar al Space
+    const res = await fetch("https://huggingface.co/spaces/Bencraft/clasificador-residuo-api/run/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: [base64] })
+    });
+
+    const result = await res.json();
+    const raw = result.data?.[0]; // raw = {label: "plástico"} según tu app.py
+    let label = "desconocido";
+
+    if(raw?.label) {
+      label = raw.label;
+    } else if(typeof raw === "string") {
+      label = raw;
+    }
+
+    log("📷 Clasificado: " + label, "info");
+    document.getElementById("lastLabel").textContent = "Etiqueta: " + label;
+
+    // Modo auto
+    if(document.getElementById("autoMode").checked) {
+      enviarComando("POSE," + label);
+    }
+
+  } catch(e) {
+    log("Error fetch: " + e, "err");
+  }
+};
+</script>
+
+
+</body>
+</html>
