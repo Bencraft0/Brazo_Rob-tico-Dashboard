@@ -214,7 +214,7 @@ document.getElementById("classifyBtn").onclick = async () => {
     return;
   }
 
-  // Capturar frame
+  // Capturar frame del video
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
@@ -224,36 +224,38 @@ document.getElementById("classifyBtn").onclick = async () => {
   // Convertir a base64
   const base64 = canvas.toDataURL("image/jpeg");
 
+  const payload = { data: [base64] };
+  log("📤 Enviando al proxy: " + JSON.stringify(payload).slice(0, 100) + "...", "info");
+
   try {
-    // Llamar al Space
     const res = await fetch("https://clasificador-proxy.onrender.com/predict", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data: [base64] })
+      body: JSON.stringify(payload)
     });
 
-    const result = await res.json();
-    const raw = result.data?.[0]; // raw = {label: "plástico"} según tu app.py
-    let label = "desconocido";
+    log("📡 Estado HTTP: " + res.status, "info");
 
-    if(raw?.label) {
-      label = raw.label;
-    } else if(typeof raw === "string") {
-      label = raw;
+    if (!res.ok) {
+      log("❌ Respuesta no OK: " + res.statusText, "err");
+      return;
     }
 
-    log("📷 Clasificado: " + label, "info");
+    const result = await res.json();
+    log("✅ Respuesta recibida: " + JSON.stringify(result), "info");
+
+    let label = result.data?.[0]?.label || "desconocido";
     document.getElementById("lastLabel").textContent = "Etiqueta: " + label;
 
-    // Modo auto
-    if(document.getElementById("autoMode").checked) {
+    if (document.getElementById("autoMode").checked) {
       enviarComando("POSE," + label);
     }
 
-  } catch(e) {
-    log("Error fetch: " + e, "err");
+  } catch (e) {
+    log("❌ Error fetch: " + e, "err");
   }
 };
+
 </script>
 
 
